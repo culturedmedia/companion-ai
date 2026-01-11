@@ -5,11 +5,51 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../stores/authStore';
 import { useCompanionStore } from '../stores/companionStore';
 import { TabNavigator } from './TabNavigator';
-import { OnboardingScreen } from '../screens/OnboardingScreen';
-import { AuthScreen } from '../screens/AuthScreen';
 import { colors } from '../theme';
 
-const Stack = createNativeStackNavigator();
+// Import all screens
+import {
+  AuthScreen,
+  OnboardingScreen,
+  ForgotPasswordScreen,
+  ResetPasswordScreen,
+  EmailVerificationScreen,
+  TwoFactorSetupScreen,
+  DeleteAccountScreen,
+  ChangePasswordScreen,
+  ActiveSessionsScreen,
+  EditTaskScreen,
+  TaskDetailScreen,
+  AchievementsScreen,
+  HelpScreen,
+  FeedbackScreen,
+  PrivacyPolicyScreen,
+  TermsOfServiceScreen,
+  NotificationSettingsScreen,
+} from '../screens';
+
+export type RootStackParamList = {
+  Auth: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: undefined;
+  EmailVerification: undefined;
+  Onboarding: undefined;
+  Main: undefined;
+  TwoFactorSetup: undefined;
+  DeleteAccount: undefined;
+  ChangePassword: undefined;
+  ActiveSessions: undefined;
+  EditTask: { taskId: string };
+  TaskDetail: { taskId: string };
+  Achievements: undefined;
+  Help: undefined;
+  Feedback: undefined;
+  Privacy: undefined;
+  Terms: undefined;
+  NotificationSettings: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
   const { session, isLoading, isOnboarded, initialize } = useAuthStore();
@@ -37,11 +77,47 @@ export const RootNavigator: React.FC = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
-          <Stack.Screen name="Auth" component={AuthScreen} />
+          // Auth Stack
+          <>
+            <Stack.Screen name="Auth" component={AuthScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="Terms" component={TermsOfServiceScreen} />
+          </>
         ) : !isOnboarded ? (
+          // Onboarding Stack
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
-          <Stack.Screen name="Main" component={TabNavigator} />
+          // Main App Stack
+          <>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            
+            {/* Task Screens */}
+            <Stack.Screen 
+              name="EditTask" 
+              component={EditTaskScreen}
+              options={{ presentation: 'modal' }}
+            />
+            <Stack.Screen 
+              name="TaskDetail" 
+              component={TaskDetailScreen}
+            />
+            
+            {/* Settings Screens */}
+            <Stack.Screen name="TwoFactorSetup" component={TwoFactorSetupScreen} />
+            <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
+            <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            
+            {/* Support Screens */}
+            <Stack.Screen name="Achievements" component={AchievementsScreen} />
+            <Stack.Screen name="Help" component={HelpScreen} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="Terms" component={TermsOfServiceScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

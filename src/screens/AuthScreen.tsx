@@ -7,9 +7,11 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../stores/authStore';
 import { Button, Input } from '../components/ui';
 import { colors, spacing, borderRadius, typography } from '../theme';
@@ -17,6 +19,7 @@ import { colors, spacing, borderRadius, typography } from '../theme';
 type AuthMode = 'signin' | 'signup';
 
 export const AuthScreen: React.FC = () => {
+  const navigation = useNavigation();
   const { signIn, signUp } = useAuthStore();
   
   const [mode, setMode] = useState<AuthMode>('signin');
@@ -137,6 +140,15 @@ export const AuthScreen: React.FC = () => {
                 size="lg"
                 style={styles.submitButton}
               />
+
+              {mode === 'signin' && (
+                <TouchableOpacity 
+                  onPress={() => navigation.navigate('ForgotPassword' as never)}
+                  style={styles.forgotButton}
+                >
+                  <Text style={styles.forgotText}>Forgot your password?</Text>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity onPress={toggleMode} style={styles.toggleButton}>
                 <Text style={styles.toggleText}>
@@ -149,6 +161,25 @@ export const AuthScreen: React.FC = () => {
                   </Text>
                 </Text>
               </TouchableOpacity>
+
+              {mode === 'signup' && (
+                <Text style={styles.termsText}>
+                  By creating an account, you agree to our{' '}
+                  <Text 
+                    style={styles.linkText}
+                    onPress={() => navigation.navigate('Terms' as never)}
+                  >
+                    Terms of Service
+                  </Text>
+                  {' '}and{' '}
+                  <Text 
+                    style={styles.linkText}
+                    onPress={() => navigation.navigate('Privacy' as never)}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
+              )}
             </View>
 
             {/* Demo Mode */}
@@ -237,6 +268,25 @@ const styles = StyleSheet.create({
   toggleTextBold: {
     color: colors.accent.primary,
     fontWeight: typography.weights.semibold,
+  },
+  forgotButton: {
+    marginTop: spacing.md,
+    alignItems: 'center',
+  },
+  forgotText: {
+    color: colors.accent.primary,
+    fontSize: typography.sizes.sm,
+  },
+  termsText: {
+    color: colors.text.tertiary,
+    fontSize: typography.sizes.xs,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+    lineHeight: typography.sizes.xs * typography.lineHeights.relaxed,
+  },
+  linkText: {
+    color: colors.accent.primary,
+    textDecorationLine: 'underline',
   },
   demoSection: {
     marginTop: spacing.xl,

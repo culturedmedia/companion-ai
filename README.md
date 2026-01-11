@@ -1,59 +1,64 @@
 # CompanionAI 🦊
 
-A voice-first personal assistant app with whimsical animal companions. Built with React Native + Expo.
+A voice-first personal assistant app with an adorable AI companion. Built with React Native + Expo.
+
+![CompanionAI Banner](./assets/banner.png)
 
 ## Features
 
-### 🎤 Voice-First Interaction
-- Add tasks by speaking naturally: "Add task to call mom tomorrow"
-- Query your tasks: "What do I need to do today?"
-- Complete tasks: "Mark grocery shopping as done"
-- Get focus suggestions: "What should I focus on?"
+### 🎤 Voice-First Experience
+- Add tasks by speaking naturally
+- Ask questions about your schedule
+- Your companion understands context and responds with personality
 
 ### 🐾 Choose Your Companion
-Pick from 8 unique whimsical animals, each with their own personality:
-- 🦊 **Fox** - Clever & Resourceful
-- 🦉 **Owl** - Wise & Observant
-- 🐱 **Cat** - Independent & Cozy
-- 🐰 **Bunny** - Gentle & Encouraging
-- 🐉 **Dragon** - Powerful & Protective
-- 🦎 **Axolotl** - Chill & Adaptable
-- 🐼 **Red Panda** - Playful & Curious
-- 🐧 **Penguin** - Loyal & Determined
+8 adorable animals with unique personalities:
+- 🦊 Fox (Clever)
+- 🦉 Owl (Wise)
+- 🐱 Cat (Independent)
+- 🐰 Bunny (Gentle)
+- 🐉 Dragon (Powerful)
+- 🦎 Axolotl (Chill)
+- 🐼 Red Panda (Playful)
+- 🐧 Penguin (Loyal)
 
-### 📋 Smart Task Management
-- Auto-categorization based on keywords
-- Priority levels (High, Medium, Low)
-- Due dates and times
+### ✅ Smart Task Management
+- Auto-categorization (Work, Personal, Health, Finance, Errands, Social)
+- Priorities and due dates
 - Recurring tasks
 - Calendar view
 
 ### 🎮 Gamification
-- Earn coins for completing tasks
-- Level up your companion
-- Shop for cosmetics and boosts
+- Earn coins and XP
 - Unlock achievements
-- Maintain streaks
+- Build daily streaks
+- Customize your companion
 
-### 💬 Proactive Companion
-Your companion asks questions and provides encouragement:
-- Morning check-ins
-- Focus suggestions
-- Task completion celebrations
-- Personalized messages based on personality
+## Tech Stack
+
+- **Framework**: React Native + Expo
+- **Language**: TypeScript
+- **State Management**: Zustand
+- **Backend**: Supabase (Auth, Database, Storage)
+- **Voice**: OpenAI Whisper API
+- **Navigation**: React Navigation
+- **Styling**: StyleSheet + Custom Theme
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - npm or yarn
 - Expo CLI
-- Supabase account
+- iOS Simulator (Mac) or Android Emulator
+- Expo Go app (for physical device testing)
 
 ### Installation
 
 1. Clone the repository:
 ```bash
+git clone https://github.com/yourusername/companion-ai.git
 cd companion-ai
 ```
 
@@ -62,137 +67,182 @@ cd companion-ai
 npm install
 ```
 
-3. Set up Supabase:
-   - Create a new Supabase project
-   - Run the SQL schema from `supabase/schema.sql`
-   - Copy your project URL and anon key
+3. Create environment file:
+```bash
+cp env.example .env
+```
 
-4. Configure environment:
-Create a `.env` file:
+4. Add your credentials to `.env`:
 ```env
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key
 ```
 
-5. Start the development server:
+5. Set up Supabase:
+   - Create a new Supabase project
+   - Run the SQL schema from `supabase/schema.sql`
+   - Enable Email auth in Authentication settings
+
+6. Start the development server:
 ```bash
 npx expo start
+```
+
+### Running on Device
+
+**iOS (Physical Device)**:
+1. Install Expo Go from App Store
+2. Scan QR code from terminal
+3. Or enter URL manually: `exp://YOUR_IP:8081`
+
+**Android (Physical Device)**:
+1. Install Expo Go from Play Store
+2. Scan QR code from terminal
+
+**iOS Simulator**:
+```bash
+npx expo start --ios
+```
+
+**Android Emulator**:
+```bash
+npx expo start --android
 ```
 
 ## Project Structure
 
 ```
 companion-ai/
-├── App.tsx                 # Main app entry
+├── assets/                 # Images, fonts, sounds
 ├── src/
 │   ├── components/
-│   │   ├── companion/      # Companion avatar & chat
-│   │   ├── tasks/          # Task cards & modals
-│   │   ├── ui/             # Reusable UI components
-│   │   └── voice/          # Voice input button
+│   │   ├── companion/     # Companion-related components
+│   │   ├── tasks/         # Task-related components
+│   │   ├── ui/            # Reusable UI components
+│   │   └── voice/         # Voice input components
 │   ├── lib/
-│   │   └── supabase.ts     # Supabase client
-│   ├── navigation/
-│   │   ├── RootNavigator.tsx
-│   │   └── TabNavigator.tsx
-│   ├── screens/
-│   │   ├── AuthScreen.tsx
-│   │   ├── CalendarScreen.tsx
-│   │   ├── HomeScreen.tsx
-│   │   ├── OnboardingScreen.tsx
-│   │   ├── SettingsScreen.tsx
-│   │   ├── ShopScreen.tsx
-│   │   └── TasksScreen.tsx
-│   ├── services/
-│   │   └── voiceService.ts # Voice intent parsing
-│   ├── stores/
-│   │   ├── authStore.ts
-│   │   ├── companionStore.ts
-│   │   ├── taskStore.ts
-│   │   └── walletStore.ts
-│   ├── theme/
-│   │   └── index.ts        # Colors, spacing, typography
-│   └── types/
-│       └── index.ts        # TypeScript types
-└── supabase/
-    └── schema.sql          # Database schema
+│   │   └── supabase.ts    # Supabase client
+│   ├── navigation/        # React Navigation setup
+│   ├── screens/           # App screens
+│   ├── services/          # Business logic services
+│   ├── stores/            # Zustand stores
+│   ├── theme/             # Colors, typography, spacing
+│   └── types/             # TypeScript types
+├── supabase/
+│   └── schema.sql         # Database schema
+├── .github/
+│   └── workflows/         # CI/CD pipelines
+├── app.json               # Expo configuration
+├── eas.json               # EAS Build configuration
+└── package.json
 ```
 
-## Voice Commands
+## Available Scripts
 
-### Adding Tasks
-- "Add task to [task description]"
-- "Remind me to [task description]"
-- "I need to [task description] by [date/time]"
+```bash
+# Start development server
+npm start
 
-### Querying Tasks
-- "What are my tasks for today?"
-- "Show me my work tasks"
-- "What didn't I finish last week?"
+# Start with cache clear
+npm start -- --clear
 
-### Completing Tasks
-- "Complete [task name]"
-- "Mark [task name] as done"
-- "I finished [task name]"
+# Run on iOS
+npm run ios
 
-### Focus & Planning
-- "What should I focus on today?"
-- "Help me prioritize"
-- "What's most important?"
+# Run on Android
+npm run android
 
-## Tech Stack
+# Run on web
+npm run web
 
-- **Framework**: React Native + Expo
-- **Navigation**: React Navigation
-- **State Management**: Zustand
-- **Backend**: Supabase (PostgreSQL + Auth)
-- **Styling**: StyleSheet + expo-linear-gradient
-- **Voice**: expo-av (recording) + external STT service
+# TypeScript check
+npm run typecheck
 
-## Integrating Speech-to-Text
+# Lint
+npm run lint
 
-The app records audio using `expo-av`. To enable actual voice recognition, integrate with one of these services:
+# Run tests
+npm test
 
-### Option 1: OpenAI Whisper API
-```typescript
-const transcribe = async (audioUri: string) => {
-  const formData = new FormData();
-  formData.append('file', {
-    uri: audioUri,
-    type: 'audio/m4a',
-    name: 'audio.m4a',
-  });
-  formData.append('model', 'whisper-1');
-  
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: formData,
-  });
-  
-  const { text } = await response.json();
-  return text;
-};
+# Build for production
+eas build --platform all
+
+# Submit to app stores
+eas submit --platform all
 ```
 
-### Option 2: Google Cloud Speech-to-Text
-### Option 3: AWS Transcribe
-### Option 4: Azure Speech Services
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `EXPO_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous key |
+| `EXPO_PUBLIC_OPENAI_API_KEY` | Your OpenAI API key for Whisper |
+
+## Database Schema
+
+See `supabase/schema.sql` for the complete database schema including:
+- Profiles
+- Companions
+- Tasks & Subtasks
+- Wallets & Transactions
+- Achievements
+- Streaks
+- Inventory & Shop Items
+- Purchases & Subscriptions
+
+## Deployment
+
+### Development Build
+```bash
+eas build --profile development --platform all
+```
+
+### Preview Build (Internal Testing)
+```bash
+eas build --profile preview --platform all
+```
+
+### Production Build
+```bash
+eas build --profile production --platform all
+```
+
+### Submit to App Stores
+```bash
+# iOS App Store
+eas submit --platform ios
+
+# Google Play Store
+eas submit --platform android
+```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 ## License
 
-MIT License - feel free to use this for your own projects!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- 📧 Email: support@companionai.app
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/companion-ai/issues)
+- 📖 Docs: [Documentation](https://docs.companionai.app)
+
+## Acknowledgments
+
+- [Expo](https://expo.dev) for the amazing development platform
+- [Supabase](https://supabase.com) for the backend infrastructure
+- [OpenAI](https://openai.com) for the Whisper API
+- All our beta testers and early adopters! 💜
 
 ---
 
-Built with ❤️ for productivity and whimsy
+Made with ❤️ by the CompanionAI Team

@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../stores/authStore';
 import { useCompanionStore } from '../stores/companionStore';
 import { useWalletStore } from '../stores/walletStore';
@@ -18,9 +19,11 @@ import { ANIMAL_OPTIONS } from '../types';
 import { colors, spacing, borderRadius, typography } from '../theme';
 
 export const SettingsScreen: React.FC = () => {
+  const navigation = useNavigation();
   const { profile, signOut, updateProfile } = useAuthStore();
   const { companion } = useCompanionStore();
   const { wallet } = useWalletStore();
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [morningReminder, setMorningReminder] = useState(true);
@@ -215,6 +218,32 @@ export const SettingsScreen: React.FC = () => {
           />
         </Card>
 
+        {/* Security Section */}
+        <Text style={styles.sectionTitle}>Security</Text>
+        <Card style={styles.section}>
+          <SettingRow
+            icon="🔑"
+            title="Change Password"
+            showArrow
+            onPress={() => navigation.navigate('ChangePassword' as never)}
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            icon="🔐"
+            title="Two-Factor Authentication"
+            subtitle={twoFactorEnabled ? 'Enabled' : 'Not set up'}
+            showArrow
+            onPress={() => navigation.navigate('TwoFactorSetup' as never)}
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            icon="📱"
+            title="Active Sessions"
+            showArrow
+            onPress={() => navigation.navigate('ActiveSessions' as never)}
+          />
+        </Card>
+
         {/* Support Section */}
         <Text style={styles.sectionTitle}>Support</Text>
         <Card style={styles.section}>
@@ -222,28 +251,40 @@ export const SettingsScreen: React.FC = () => {
             icon="❓"
             title="Help & FAQ"
             showArrow
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Help' as never)}
           />
           <View style={styles.divider} />
           <SettingRow
             icon="💬"
             title="Send Feedback"
             showArrow
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Feedback' as never)}
           />
           <View style={styles.divider} />
           <SettingRow
             icon="📜"
             title="Privacy Policy"
             showArrow
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Privacy' as never)}
           />
           <View style={styles.divider} />
           <SettingRow
             icon="📋"
             title="Terms of Service"
             showArrow
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Terms' as never)}
+          />
+        </Card>
+
+        {/* Danger Zone */}
+        <Text style={styles.sectionTitle}>Account</Text>
+        <Card style={styles.section}>
+          <SettingRow
+            icon="🗑️"
+            title="Delete Account"
+            subtitle="Permanently delete your account and data"
+            showArrow
+            onPress={() => navigation.navigate('DeleteAccount' as never)}
           />
         </Card>
 
