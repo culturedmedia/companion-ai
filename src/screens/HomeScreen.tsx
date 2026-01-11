@@ -20,6 +20,9 @@ import { AddTaskModal } from '../components/tasks/AddTaskModal';
 import { VoiceButton } from '../components/voice/VoiceButton';
 import { Card, Button } from '../components/ui';
 import { parseVoiceIntent } from '../services/voiceService';
+import { ttsService } from '../services/ttsService';
+import { hapticService } from '../services/hapticService';
+import { analyticsService } from '../services/analyticsService';
 import { colors, spacing, borderRadius, typography } from '../theme';
 import { ANIMAL_OPTIONS } from '../types';
 
@@ -41,6 +44,7 @@ export const HomeScreen: React.FC = () => {
   const [showAddTask, setShowAddTask] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
 
   const todaysTasks = getTodaysTasks();
   const overdueTasks = getOverdueTasks();
@@ -72,13 +76,18 @@ export const HomeScreen: React.FC = () => {
     }
   }, [companion]);
 
-  const addCompanionMessage = (text: string) => {
+  const addCompanionMessage = (text: string, speak: boolean = true) => {
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       text,
       isCompanion: true,
       timestamp: new Date(),
     }]);
+    
+    // Speak the message if TTS is enabled
+    if (speak && ttsEnabled && companion) {
+      ttsService.speakAsCompanion(text, companion.personality || 'gentle');
+    }
   };
 
   const addUserMessage = (text: string) => {
@@ -183,6 +192,9 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleTaskComplete = async (taskId: string) => {
+    hapticService.success();
+    analyticsService.trackEvent('task_completed', { taskId });
+    
     const result = await completeTask(taskId);
     if (!result.error) {
       addCompanionMessage(getCompanionEncouragement());

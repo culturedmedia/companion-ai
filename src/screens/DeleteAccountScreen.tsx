@@ -38,34 +38,19 @@ export const DeleteAccountScreen: React.FC = () => {
     setError(null);
 
     try {
-      // Re-authenticate user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: password,
+      // Call Edge Function to delete account
+      const { data, error: fnError } = await supabase.functions.invoke('delete-account', {
+        body: { password },
       });
 
-      if (signInError) {
-        throw new Error('Incorrect password');
+      if (fnError) {
+        throw new Error(fnError.message);
       }
 
-      // Delete all user data from tables
-      const userId = user?.id;
-      
-      if (userId) {
-        // Delete in order due to foreign key constraints
-        await supabase.from('user_achievements').delete().eq('user_id', userId);
-        await supabase.from('inventory').delete().eq('user_id', userId);
-        await supabase.from('streaks').delete().eq('user_id', userId);
-        await supabase.from('tasks').delete().eq('user_id', userId);
-        await supabase.from('wallets').delete().eq('user_id', userId);
-        await supabase.from('companions').delete().eq('user_id', userId);
-        await supabase.from('profiles').delete().eq('id', userId);
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
-      // Delete the auth user (this requires admin privileges or edge function)
-      // For now, we'll sign out and the user data is deleted
-      // In production, use a Supabase Edge Function to delete auth.users
-      
       Alert.alert(
         'Account Deleted',
         'Your account and all associated data have been permanently deleted.',
@@ -104,13 +89,21 @@ export const DeleteAccountScreen: React.FC = () => {
           <Text style={styles.warningItem}>• All coins, XP, and achievements</Text>
           <Text style={styles.warningItem}>• Purchased items and inventory</Text>
           <Text style={styles.warningItem}>• Streaks and activity history</Text>
+          <Text style={styles.warningItem}>• Any active subscriptions</Text>
         </View>
       </Card>
 
       <Card style={styles.infoCard}>
         <Text style={styles.infoTitle}>⏰ This action is permanent</Text>
         <Text style={styles.infoText}>
-          Once you delete your account, there is no way to recover your data. This action cannot be undone.
+          Once you delete your account, there is no way to recover your data. This action cannot be undone. Your authentication credentials will also be removed.
+        </Text>
+      </Card>
+
+      <Card style={styles.subscriptionCard}>
+        <Text style={styles.subscriptionTitle}>📱 Active Subscriptions</Text>
+        <Text style={styles.subscriptionText}>
+          If you have an active subscription, please cancel it through your device's app store settings before deleting your account to avoid future charges.
         </Text>
       </Card>
 
@@ -187,7 +180,7 @@ export const DeleteAccountScreen: React.FC = () => {
         />
 
         <Text style={styles.finalWarning}>
-          ⚠️ This will immediately and permanently delete your account and all data.
+          ⚠️ This will immediately and permanently delete your account, all data, and your authentication credentials.
         </Text>
       </Card>
     </>
@@ -262,7 +255,7 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: colors.accent.warning + '10',
     borderColor: colors.accent.warning + '30',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   infoTitle: {
     color: colors.accent.warning,
@@ -271,6 +264,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   infoText: {
+    color: colors.text.secondary,
+    fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * typography.lineHeights.relaxed,
+  },
+  subscriptionCard: {
+    backgroundColor: colors.accent.primary + '10',
+    borderColor: colors.accent.primary + '30',
+    marginBottom: spacing.xl,
+  },
+  subscriptionTitle: {
+    color: colors.accent.primary,
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.semibold,
+    marginBottom: spacing.xs,
+  },
+  subscriptionText: {
     color: colors.text.secondary,
     fontSize: typography.sizes.sm,
     lineHeight: typography.sizes.sm * typography.lineHeights.relaxed,

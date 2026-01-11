@@ -26,6 +26,9 @@ import {
   PrivacyPolicyScreen,
   TermsOfServiceScreen,
   NotificationSettingsScreen,
+  InventoryScreen,
+  WellnessScreen,
+  JournalScreen,
 } from '../screens';
 
 export type RootStackParamList = {
@@ -47,6 +50,9 @@ export type RootStackParamList = {
   Privacy: undefined;
   Terms: undefined;
   NotificationSettings: undefined;
+  Inventory: undefined;
+  Wellness: undefined;
+  Journal: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -117,6 +123,9 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen name="Privacy" component={PrivacyPolicyScreen} />
             <Stack.Screen name="Terms" component={TermsOfServiceScreen} />
+            <Stack.Screen name="Inventory" component={InventoryScreen} />
+            <Stack.Screen name="Wellness" component={WellnessScreen} />
+            <Stack.Screen name="Journal" component={JournalScreen} />
           </>
         )}
       </Stack.Navigator>

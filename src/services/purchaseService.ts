@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
+import * as InAppPurchases from 'expo-in-app-purchases';
 import { supabase } from '../lib/supabase';
 
-// Product IDs - these should match your App Store Connect / Google Play Console
+// Product IDs - must match App Store Connect / Google Play Console
 export const PRODUCT_IDS = {
   // Consumables (coin packs)
   COINS_100: 'com.companionai.coins.100',
@@ -19,23 +20,30 @@ export const PRODUCT_IDS = {
   REMOVE_ADS: 'com.companionai.removeads',
 };
 
+// Coin amounts for each product
+const COIN_AMOUNTS: Record<string, number> = {
+  [PRODUCT_IDS.COINS_100]: 100,
+  [PRODUCT_IDS.COINS_500]: 500,
+  [PRODUCT_IDS.COINS_1000]: 1000,
+  [PRODUCT_IDS.COINS_5000]: 5000,
+};
+
 export interface Product {
-  id: string;
+  productId: string;
   title: string;
   description: string;
   price: string;
-  priceAmount: number;
-  currency: string;
-  type: 'consumable' | 'subscription' | 'non-consumable';
+  priceAmountMicros: string;
+  priceCurrencyCode: string;
+  type: 'inapp' | 'subs';
 }
 
 export interface Purchase {
-  id: string;
   productId: string;
   transactionId: string;
-  purchaseDate: Date;
-  expirationDate?: Date;
-  isActive: boolean;
+  transactionDate: number;
+  transactionReceipt: string;
+  purchaseState: number;
 }
 
 export interface Subscription {
@@ -48,197 +56,154 @@ export interface Subscription {
 class PurchaseService {
   private isInitialized = false;
   private products: Map<string, Product> = new Map();
+  private purchaseListener: InAppPurchases.PurchaseListener | null = null;
 
   // Initialize IAP
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+  async initialize(): Promise<boolean> {
+    if (this.isInitialized) return true;
 
     try {
-      // In production, use expo-in-app-purchases or react-native-iap
-      // For now, we'll set up mock products
-      this.setupMockProducts();
+      // Connect to the store
+      const { responseCode } = await InAppPurchases.connectAsync();
+      
+      if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
+        console.error('Failed to connect to IAP:', responseCode);
+        return false;
+      }
+
+      // Set up purchase listener
+      this.purchaseListener = InAppPurchases.setPurchaseListener(
+        this.handlePurchaseUpdate.bind(this)
+      );
+
+      // Load products
+      await this.loadProducts();
+
       this.isInitialized = true;
+      return true;
     } catch (error) {
-      console.error('Failed to initialize purchases:', error);
+      console.error('Failed to initialize IAP:', error);
+      return false;
     }
   }
 
-  private setupMockProducts(): void {
-    const mockProducts: Product[] = [
-      {
-        id: PRODUCT_IDS.COINS_100,
-        title: '100 Coins',
-        description: 'A small pouch of coins',
-        price: '$0.99',
-        priceAmount: 0.99,
-        currency: 'USD',
-        type: 'consumable',
-      },
-      {
-        id: PRODUCT_IDS.COINS_500,
-        title: '500 Coins',
-        description: 'A bag of coins (Best Value!)',
-        price: '$3.99',
-        priceAmount: 3.99,
-        currency: 'USD',
-        type: 'consumable',
-      },
-      {
-        id: PRODUCT_IDS.COINS_1000,
-        title: '1000 Coins',
-        description: 'A chest of coins',
-        price: '$6.99',
-        priceAmount: 6.99,
-        currency: 'USD',
-        type: 'consumable',
-      },
-      {
-        id: PRODUCT_IDS.COINS_5000,
-        title: '5000 Coins',
-        description: 'A treasure trove!',
-        price: '$24.99',
-        priceAmount: 24.99,
-        currency: 'USD',
-        type: 'consumable',
-      },
-      {
-        id: PRODUCT_IDS.PREMIUM_MONTHLY,
-        title: 'Premium Monthly',
-        description: 'Unlimited voice commands, exclusive companions, and more!',
-        price: '$4.99/month',
-        priceAmount: 4.99,
-        currency: 'USD',
-        type: 'subscription',
-      },
-      {
-        id: PRODUCT_IDS.PREMIUM_YEARLY,
-        title: 'Premium Yearly',
-        description: 'Save 40%! All premium features for a year.',
-        price: '$35.99/year',
-        priceAmount: 35.99,
-        currency: 'USD',
-        type: 'subscription',
-      },
-      {
-        id: PRODUCT_IDS.UNLOCK_ALL_ANIMALS,
-        title: 'Unlock All Animals',
-        description: 'Get access to all companion animals forever!',
-        price: '$9.99',
-        priceAmount: 9.99,
-        currency: 'USD',
-        type: 'non-consumable',
-      },
-      {
-        id: PRODUCT_IDS.UNLOCK_PREMIUM_THEMES,
-        title: 'Premium Themes',
-        description: 'Unlock all premium backgrounds and themes',
-        price: '$4.99',
-        priceAmount: 4.99,
-        currency: 'USD',
-        type: 'non-consumable',
-      },
-      {
-        id: PRODUCT_IDS.REMOVE_ADS,
-        title: 'Remove Ads',
-        description: 'Enjoy an ad-free experience',
-        price: '$2.99',
-        priceAmount: 2.99,
-        currency: 'USD',
-        type: 'non-consumable',
-      },
-    ];
+  // Load products from store
+  private async loadProducts(): Promise<void> {
+    const allProductIds = Object.values(PRODUCT_IDS);
 
-    mockProducts.forEach(p => this.products.set(p.id, p));
-  }
-
-  // Get available products
-  async getProducts(): Promise<Product[]> {
-    await this.initialize();
-    return Array.from(this.products.values());
-  }
-
-  // Get product by ID
-  async getProduct(productId: string): Promise<Product | null> {
-    await this.initialize();
-    return this.products.get(productId) || null;
-  }
-
-  // Purchase a product
-  async purchase(userId: string, productId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const product = await this.getProduct(productId);
-      if (!product) {
-        return { success: false, error: 'Product not found' };
-      }
+      const { responseCode, results } = await InAppPurchases.getProductsAsync(allProductIds);
 
-      // In production, this would trigger the native IAP flow
-      // For now, we'll simulate a successful purchase
-
-      // Record purchase in database
-      const { error } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: userId,
-          product_id: productId,
-          transaction_id: `mock_${Date.now()}`,
-          amount: product.priceAmount,
-          currency: product.currency,
-          status: 'completed',
-          platform: Platform.OS,
+      if (responseCode === InAppPurchases.IAPResponseCode.OK && results) {
+        results.forEach((product: any) => {
+          this.products.set(product.productId, {
+            productId: product.productId,
+            title: product.title,
+            description: product.description,
+            price: product.price,
+            priceAmountMicros: product.priceAmountMicros,
+            priceCurrencyCode: product.priceCurrencyCode,
+            type: product.type,
+          });
         });
-
-      if (error) throw error;
-
-      // Handle product delivery
-      await this.deliverProduct(userId, product);
-
-      return { success: true };
+      }
     } catch (error) {
-      console.error('Purchase failed:', error);
-      return { success: false, error: 'Purchase failed. Please try again.' };
+      console.error('Failed to load products:', error);
+    }
+  }
+
+  // Handle purchase updates
+  private async handlePurchaseUpdate(result: InAppPurchases.InAppPurchase): Promise<void> {
+    const { responseCode, results } = result;
+
+    if (responseCode === InAppPurchases.IAPResponseCode.OK && results) {
+      for (const purchase of results) {
+        if (!purchase.acknowledged) {
+          // Process the purchase
+          await this.processPurchase(purchase);
+          
+          // Acknowledge/finish the purchase
+          await InAppPurchases.finishTransactionAsync(purchase, true);
+        }
+      }
+    } else if (responseCode === InAppPurchases.IAPResponseCode.USER_CANCELED) {
+      console.log('User cancelled purchase');
+    } else {
+      console.error('Purchase failed:', responseCode);
+    }
+  }
+
+  // Process a completed purchase
+  private async processPurchase(purchase: any): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const productId = purchase.productId;
+
+    try {
+      // Record purchase in database
+      await supabase.from('purchases').insert({
+        user_id: user.id,
+        product_id: productId,
+        transaction_id: purchase.transactionId,
+        amount: this.products.get(productId)?.priceAmountMicros 
+          ? parseInt(this.products.get(productId)!.priceAmountMicros) / 1000000 
+          : 0,
+        currency: this.products.get(productId)?.priceCurrencyCode || 'USD',
+        status: 'completed',
+        platform: Platform.OS,
+        receipt_data: purchase.transactionReceipt,
+      });
+
+      // Deliver the product
+      await this.deliverProduct(user.id, productId);
+    } catch (error) {
+      console.error('Failed to process purchase:', error);
     }
   }
 
   // Deliver purchased product
-  private async deliverProduct(userId: string, product: Product): Promise<void> {
-    switch (product.id) {
-      case PRODUCT_IDS.COINS_100:
-        await this.addCoins(userId, 100);
-        break;
-      case PRODUCT_IDS.COINS_500:
-        await this.addCoins(userId, 500);
-        break;
-      case PRODUCT_IDS.COINS_1000:
-        await this.addCoins(userId, 1000);
-        break;
-      case PRODUCT_IDS.COINS_5000:
-        await this.addCoins(userId, 5000);
-        break;
-      case PRODUCT_IDS.PREMIUM_MONTHLY:
-      case PRODUCT_IDS.PREMIUM_YEARLY:
-        await this.activateSubscription(userId, product.id);
-        break;
-      case PRODUCT_IDS.UNLOCK_ALL_ANIMALS:
-      case PRODUCT_IDS.UNLOCK_PREMIUM_THEMES:
-      case PRODUCT_IDS.REMOVE_ADS:
-        await this.unlockFeature(userId, product.id);
-        break;
+  private async deliverProduct(userId: string, productId: string): Promise<void> {
+    // Handle coin packs
+    if (COIN_AMOUNTS[productId]) {
+      await this.addCoins(userId, COIN_AMOUNTS[productId]);
+      return;
     }
+
+    // Handle subscriptions
+    if (productId === PRODUCT_IDS.PREMIUM_MONTHLY || productId === PRODUCT_IDS.PREMIUM_YEARLY) {
+      await this.activateSubscription(userId, productId);
+      return;
+    }
+
+    // Handle non-consumables
+    await this.unlockFeature(userId, productId);
   }
 
   // Add coins to user wallet
   private async addCoins(userId: string, amount: number): Promise<void> {
     const { data: wallet } = await supabase
       .from('wallets')
-      .select('coins')
+      .select('coins, lifetime_coins')
       .eq('user_id', userId)
       .single();
 
     if (wallet) {
       await supabase
         .from('wallets')
-        .update({ coins: wallet.coins + amount })
+        .update({ 
+          coins: wallet.coins + amount,
+          lifetime_coins: wallet.lifetime_coins + amount,
+        })
         .eq('user_id', userId);
+
+      // Record transaction
+      await supabase.from('coin_transactions').insert({
+        user_id: userId,
+        amount,
+        type: 'purchased',
+        description: `Purchased ${amount} coins`,
+      });
     }
   }
 
@@ -256,6 +221,7 @@ class PurchaseService {
         status: 'active',
         expiration_date: expirationDate.toISOString(),
         will_renew: true,
+        platform: Platform.OS,
       });
   }
 
@@ -263,10 +229,41 @@ class PurchaseService {
   private async unlockFeature(userId: string, featureId: string): Promise<void> {
     await supabase
       .from('unlocked_features')
-      .insert({
+      .upsert({
         user_id: userId,
         feature_id: featureId,
       });
+  }
+
+  // Get available products
+  async getProducts(): Promise<Product[]> {
+    await this.initialize();
+    return Array.from(this.products.values());
+  }
+
+  // Get product by ID
+  getProduct(productId: string): Product | null {
+    return this.products.get(productId) || null;
+  }
+
+  // Purchase a product
+  async purchase(productId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.initialize();
+
+      const { responseCode } = await InAppPurchases.purchaseItemAsync(productId);
+
+      if (responseCode === InAppPurchases.IAPResponseCode.OK) {
+        return { success: true };
+      } else if (responseCode === InAppPurchases.IAPResponseCode.USER_CANCELED) {
+        return { success: false, error: 'Purchase cancelled' };
+      } else {
+        return { success: false, error: 'Purchase failed' };
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      return { success: false, error: 'Purchase failed. Please try again.' };
+    }
   }
 
   // Check subscription status
@@ -286,11 +283,19 @@ class PurchaseService {
       const expirationDate = new Date(data.expiration_date);
       const isActive = expirationDate > new Date();
 
+      // If expired, update status
+      if (!isActive) {
+        await supabase
+          .from('subscriptions')
+          .update({ status: 'expired' })
+          .eq('id', data.id);
+      }
+
       return {
         isActive,
         productId: data.product_id,
         expirationDate,
-        willRenew: data.will_renew,
+        willRenew: data.will_renew && isActive,
       };
     } catch {
       return { isActive: false, willRenew: false };
@@ -313,26 +318,43 @@ class PurchaseService {
     }
   }
 
-  // Restore purchases
-  async restorePurchases(userId: string): Promise<{ success: boolean; restored: number }> {
-    try {
-      // In production, this would query the app store for previous purchases
-      // and restore them to the user's account
+  // Check if user has premium (subscription or lifetime)
+  async hasPremium(userId: string): Promise<boolean> {
+    const subscription = await this.getSubscriptionStatus(userId);
+    if (subscription.isActive) return true;
 
-      // For now, we'll check our database for existing purchases
-      const { data: purchases } = await supabase
-        .from('purchases')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'completed');
+    // Check for lifetime unlocks that grant premium
+    const hasAllAnimals = await this.isFeatureUnlocked(userId, PRODUCT_IDS.UNLOCK_ALL_ANIMALS);
+    return hasAllAnimals;
+  }
+
+  // Restore purchases
+  async restorePurchases(): Promise<{ success: boolean; restored: number }> {
+    try {
+      await this.initialize();
+
+      const { responseCode, results } = await InAppPurchases.getPurchaseHistoryAsync();
+
+      if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
+        return { success: false, restored: 0 };
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { success: false, restored: 0 };
 
       let restored = 0;
 
-      if (purchases) {
-        for (const purchase of purchases) {
-          const product = await this.getProduct(purchase.product_id);
-          if (product && product.type !== 'consumable') {
-            await this.deliverProduct(userId, product);
+      if (results) {
+        for (const purchase of results) {
+          // Only restore non-consumables and active subscriptions
+          if (
+            purchase.productId === PRODUCT_IDS.UNLOCK_ALL_ANIMALS ||
+            purchase.productId === PRODUCT_IDS.UNLOCK_PREMIUM_THEMES ||
+            purchase.productId === PRODUCT_IDS.REMOVE_ADS ||
+            purchase.productId === PRODUCT_IDS.PREMIUM_MONTHLY ||
+            purchase.productId === PRODUCT_IDS.PREMIUM_YEARLY
+          ) {
+            await this.deliverProduct(user.id, purchase.productId);
             restored++;
           }
         }
@@ -346,7 +368,7 @@ class PurchaseService {
   }
 
   // Get purchase history
-  async getPurchaseHistory(userId: string): Promise<Purchase[]> {
+  async getPurchaseHistory(userId: string): Promise<any[]> {
     try {
       const { data } = await supabase
         .from('purchases')
@@ -354,16 +376,21 @@ class PurchaseService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      return (data || []).map(p => ({
-        id: p.id,
-        productId: p.product_id,
-        transactionId: p.transaction_id,
-        purchaseDate: new Date(p.created_at),
-        isActive: p.status === 'completed',
-      }));
+      return data || [];
     } catch {
       return [];
     }
+  }
+
+  // Disconnect from store
+  async disconnect(): Promise<void> {
+    if (this.purchaseListener) {
+      this.purchaseListener.remove();
+      this.purchaseListener = null;
+    }
+    
+    await InAppPurchases.disconnectAsync();
+    this.isInitialized = false;
   }
 }
 

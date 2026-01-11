@@ -6,61 +6,71 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Platform,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
+import { sessionService, Session } from '../services/sessionService';
 import { useAuthStore } from '../stores/authStore';
 import { Button, Card } from '../components/ui';
 import { colors, spacing, borderRadius, typography } from '../theme';
 
-interface Session {
-  id: string;
-  device: string;
-  location: string;
-  lastActive: Date;
-  isCurrent: boolean;
-}
-
 export const ActiveSessionsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { signOut } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadSessions();
   }, []);
 
   const loadSessions = async () => {
-    // In production, this would fetch from a sessions table
-    // For now, we'll show the current session
-    const mockSessions: Session[] = [
-      {
-        id: '1',
-        device: `${Platform.OS === 'ios' ? 'iPhone' : 'Android'} - CompanionAI`,
-        location: 'Current Location',
-        lastActive: new Date(),
-        isCurrent: true,
-      },
-    ];
-    setSessions(mockSessions);
-    setIsLoading(false);
+    if (!user?.id) return;
+    
+    try {
+      const data = await sessionService.getSessions(user.id);
+      setSessions(data);
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
-  const handleRevokeSession = (sessionId: string) => {
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadSessions();
+  };
+
+  const handleRevokeSession = (session: Session) => {
+    if (session.is_current) {
+      Alert.alert(
+        'Cannot Revoke',
+        'You cannot revoke your current session. Use "Sign Out" instead.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Alert.alert(
       'Sign Out Device',
-      'Are you sure you want to sign out this device?',
+      `Are you sure you want to sign out "${session.device_name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            // In production, revoke the specific session
-            setSessions(sessions.filter(s => s.id !== sessionId));
+            const success = await sessionService.revokeSession(session.id);
+            if (success) {
+              setSessions(sessions.filter(s => s.id !== session.id));
+            } else {
+              Alert.alert('Error', 'Failed to sign out device');
+            }
           },
         },
       ]
@@ -77,6 +87,9 @@ export const ActiveSessionsScreen: React.FC = () => {
           text: 'Sign Out All',
           style: 'destructive',
           onPress: async () => {
+            if (user?.id) {
+              await sessionService.revokeAllOtherSessions(user.id);
+            }
             await signOut();
           },
         },
@@ -84,7 +97,36 @@ export const ActiveSessionsScreen: React.FC = () => {
     );
   };
 
-  const formatDate = (date: Date) => {
+  const handleRevokeAllOthers = () => {
+    const otherSessions = sessions.filter(s => !s.is_current);
+    if (otherSessions.length === 0) {
+      Alert.alert('No Other Sessions', 'You only have one active session.');
+      return;
+    }
+
+    Alert.alert(
+      'Sign Out Other Devices',
+      `This will sign out ${otherSessions.length} other device(s).`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out Others',
+          style: 'destructive',
+          onPress: async () => {
+            if (user?.id) {
+              const success = await sessionService.revokeAllOtherSessions(user.id);
+              if (success) {
+                setSessions(sessions.filter(s => s.is_current));
+              }
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
@@ -92,10 +134,30 @@ export const ActiveSessionsScreen: React.FC = () => {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} minutes ago`;
-    if (hours < 24) return `${hours} hours ago`;
-    return `${days} days ago`;
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   };
+
+  const getDeviceIcon = (deviceType: string, deviceName: string) => {
+    if (deviceType === 'ios' || deviceName.toLowerCase().includes('iphone')) return '📱';
+    if (deviceType === 'android') return '📱';
+    if (deviceType === 'web') return '🌐';
+    if (deviceName.toLowerCase().includes('ipad')) return '📱';
+    if (deviceName.toLowerCase().includes('mac')) return '💻';
+    return '🖥️';
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -110,62 +172,98 @@ export const ActiveSessionsScreen: React.FC = () => {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.accent.primary}
+          />
+        }
       >
         <Text style={styles.description}>
           These are the devices currently signed in to your account. You can sign out any device you don't recognize.
         </Text>
 
+        {/* Session Count */}
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>
+            {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+
         {sessions.map((session) => (
           <Card key={session.id} style={styles.sessionCard}>
             <View style={styles.sessionHeader}>
               <Text style={styles.deviceIcon}>
-                {session.device.includes('iPhone') ? '📱' : 
-                 session.device.includes('Android') ? '📱' : 
-                 session.device.includes('Mac') ? '💻' : '🖥️'}
+                {getDeviceIcon(session.device_type, session.device_name)}
               </Text>
               <View style={styles.sessionInfo}>
                 <View style={styles.deviceRow}>
-                  <Text style={styles.deviceName}>{session.device}</Text>
-                  {session.isCurrent && (
+                  <Text style={styles.deviceName}>{session.device_name}</Text>
+                  {session.is_current && (
                     <View style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>Current</Text>
+                      <Text style={styles.currentBadgeText}>This device</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.sessionLocation}>{session.location}</Text>
+                {session.location && (
+                  <Text style={styles.sessionLocation}>📍 {session.location}</Text>
+                )}
                 <Text style={styles.sessionTime}>
-                  Last active: {formatDate(session.lastActive)}
+                  Last active: {formatDate(session.last_active_at)}
+                </Text>
+                <Text style={styles.sessionCreated}>
+                  Signed in: {formatDate(session.created_at)}
                 </Text>
               </View>
             </View>
             
-            {!session.isCurrent && (
+            {!session.is_current && (
               <TouchableOpacity
-                onPress={() => handleRevokeSession(session.id)}
+                onPress={() => handleRevokeSession(session)}
                 style={styles.revokeButton}
               >
-                <Text style={styles.revokeText}>Sign Out</Text>
+                <Text style={styles.revokeText}>Sign Out This Device</Text>
               </TouchableOpacity>
             )}
           </Card>
         ))}
 
-        <View style={styles.signOutAllContainer}>
+        {sessions.length === 0 && (
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No active sessions found</Text>
+          </Card>
+        )}
+
+        {/* Actions */}
+        <View style={styles.actionsContainer}>
+          {sessions.length > 1 && (
+            <Button
+              title="Sign Out All Other Devices"
+              variant="outline"
+              onPress={handleRevokeAllOthers}
+              fullWidth
+              style={styles.actionButton}
+            />
+          )}
+          
           <Button
             title="Sign Out All Devices"
             variant="outline"
             onPress={handleSignOutAll}
             fullWidth
+            style={[styles.actionButton, styles.dangerButton]}
           />
-          <Text style={styles.signOutAllNote}>
-            This will sign you out of all devices, including this one.
-          </Text>
         </View>
 
+        {/* Security Tip */}
         <Card style={styles.securityTip}>
-          <Text style={styles.securityTipTitle}>🔒 Security Tip</Text>
+          <Text style={styles.securityTipTitle}>🔒 Security Tips</Text>
           <Text style={styles.securityTipText}>
-            If you see a device you don't recognize, sign it out immediately and change your password.
+            • Sign out devices you don't recognize immediately{'\n'}
+            • Change your password if you see suspicious activity{'\n'}
+            • Enable two-factor authentication for extra security{'\n'}
+            • Review your sessions regularly
           </Text>
         </Card>
       </ScrollView>
@@ -177,6 +275,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -203,7 +306,19 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: typography.sizes.sm,
     lineHeight: typography.sizes.sm * typography.lineHeights.relaxed,
+    marginBottom: spacing.md,
+  },
+  countBadge: {
+    backgroundColor: colors.background.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    alignSelf: 'flex-start',
     marginBottom: spacing.lg,
+  },
+  countText: {
+    color: colors.text.secondary,
+    fontSize: typography.sizes.sm,
   },
   sessionCard: {
     marginBottom: spacing.md,
@@ -222,19 +337,20 @@ const styles = StyleSheet.create({
   deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginBottom: spacing.xs,
   },
   deviceName: {
     color: colors.text.primary,
     fontSize: typography.sizes.md,
     fontWeight: typography.weights.semibold,
+    marginRight: spacing.sm,
   },
   currentBadge: {
     backgroundColor: colors.accent.success + '20',
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
-    marginLeft: spacing.sm,
   },
   currentBadgeText: {
     color: colors.accent.success,
@@ -250,6 +366,11 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     fontSize: typography.sizes.xs,
   },
+  sessionCreated: {
+    color: colors.text.tertiary,
+    fontSize: typography.sizes.xs,
+    marginTop: 2,
+  },
   revokeButton: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
@@ -261,25 +382,34 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     textAlign: 'center',
   },
-  signOutAllContainer: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.lg,
+  emptyCard: {
+    alignItems: 'center',
+    padding: spacing.xl,
   },
-  signOutAllNote: {
+  emptyText: {
     color: colors.text.tertiary,
-    fontSize: typography.sizes.xs,
-    textAlign: 'center',
-    marginTop: spacing.sm,
+    fontSize: typography.sizes.md,
+  },
+  actionsContainer: {
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  actionButton: {
+    marginBottom: spacing.sm,
+  },
+  dangerButton: {
+    borderColor: colors.accent.error,
   },
   securityTip: {
     backgroundColor: colors.accent.primary + '10',
     borderColor: colors.accent.primary + '30',
+    marginTop: spacing.lg,
   },
   securityTipTitle: {
     color: colors.accent.primary,
     fontSize: typography.sizes.sm,
     fontWeight: typography.weights.semibold,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   securityTipText: {
     color: colors.text.secondary,

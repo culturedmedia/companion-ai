@@ -31,3 +31,8 @@ export { AchievementsScreen } from './AchievementsScreen';
 export { HelpScreen } from './HelpScreen';
 export { FeedbackScreen } from './FeedbackScreen';
 export { NotificationSettingsScreen } from './NotificationSettingsScreen';
+export { InventoryScreen } from './InventoryScreen';
+
+// Wellness screens
+export { WellnessScreen } from './WellnessScreen';
+export { JournalScreen } from './JournalScreen';

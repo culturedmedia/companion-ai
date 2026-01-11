@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Clipboard,
   Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
@@ -19,7 +19,7 @@ export const TwoFactorSetupScreen: React.FC = () => {
   const navigation = useNavigation();
   const [step, setStep] = useState<'intro' | 'setup' | 'verify' | 'backup'>('intro');
   const [secret, setSecret] = useState('');
-  const [qrCode, setQrCode] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,23 +27,26 @@ export const TwoFactorSetupScreen: React.FC = () => {
 
   const generateSecret = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      // In production, this would call a Supabase Edge Function
-      // that generates a TOTP secret using a library like otplib
-      const mockSecret = 'JBSWY3DPEHPK3PXP'; // Demo secret
-      const mockQR = `otpauth://totp/CompanionAI:user@example.com?secret=${mockSecret}&issuer=CompanionAI`;
-      
-      setSecret(mockSecret);
-      setQrCode(mockQR);
+      const { data, error: fnError } = await supabase.functions.invoke('generate-totp', {
+        body: { action: 'generate' },
+      });
+
+      if (fnError) throw fnError;
+
+      setSecret(data.secret);
+      setQrCodeUrl(data.qrCodeUrl);
       setStep('setup');
     } catch (err) {
-      setError('Failed to generate 2FA secret');
+      setError(err instanceof Error ? err.message : 'Failed to generate 2FA secret');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const verifyCode = async () => {
+  const verifyAndEnable = async () => {
     if (verificationCode.length !== 6) {
       setError('Please enter a 6-digit code');
       return;
@@ -53,37 +56,42 @@ export const TwoFactorSetupScreen: React.FC = () => {
     setError(null);
 
     try {
-      // In production, verify the TOTP code against the secret
-      // using a Supabase Edge Function
-      
-      // Generate backup codes
-      const codes = Array.from({ length: 10 }, () => 
-        Math.random().toString(36).substring(2, 8).toUpperCase()
-      );
-      
-      setBackupCodes(codes);
+      const { data, error: fnError } = await supabase.functions.invoke('generate-totp', {
+        body: { action: 'enable', code: verificationCode },
+      });
+
+      if (fnError) throw fnError;
+
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      setBackupCodes(data.backupCodes);
       setStep('backup');
     } catch (err) {
-      setError('Invalid verification code');
+      setError(err instanceof Error ? err.message : 'Invalid verification code');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const copySecret = () => {
-    Clipboard.setString(secret);
+  const copySecret = async () => {
+    await Clipboard.setStringAsync(secret);
     Alert.alert('Copied!', 'Secret key copied to clipboard');
   };
 
-  const copyBackupCodes = () => {
-    Clipboard.setString(backupCodes.join('\n'));
+  const copyBackupCodes = async () => {
+    await Clipboard.setStringAsync(backupCodes.join('\n'));
     Alert.alert('Copied!', 'Backup codes copied to clipboard');
   };
 
-  const finishSetup = async () => {
-    // Save 2FA enabled status to user profile
-    // In production, store this in the database
-    navigation.goBack();
+  const finishSetup = () => {
+    Alert.alert(
+      '2FA Enabled!',
+      'Two-factor authentication is now active on your account.',
+      [{ text: 'Done', onPress: () => navigation.goBack() }]
+    );
   };
 
   const renderIntro = () => (
@@ -128,12 +136,19 @@ export const TwoFactorSetupScreen: React.FC = () => {
         Open your authenticator app and scan this QR code:
       </Text>
 
-      {/* QR Code placeholder - in production use react-native-qrcode-svg */}
+      {/* QR Code from API */}
       <View style={styles.qrContainer}>
-        <View style={styles.qrPlaceholder}>
-          <Text style={styles.qrPlaceholderText}>📱</Text>
-          <Text style={styles.qrPlaceholderSubtext}>QR Code</Text>
-        </View>
+        {qrCodeUrl ? (
+          <Image
+            source={{ uri: qrCodeUrl }}
+            style={styles.qrImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <View style={styles.qrPlaceholder}>
+            <Text style={styles.qrPlaceholderText}>Loading...</Text>
+          </View>
+        )}
       </View>
 
       <Text style={styles.orText}>Or enter this key manually:</Text>
@@ -150,6 +165,13 @@ export const TwoFactorSetupScreen: React.FC = () => {
         size="lg"
         style={styles.nextButton}
       />
+
+      <TouchableOpacity 
+        onPress={() => setStep('intro')}
+        style={styles.backButton}
+      >
+        <Text style={styles.backText}>← Back</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -166,18 +188,20 @@ export const TwoFactorSetupScreen: React.FC = () => {
         </View>
       )}
 
-      <Input
-        placeholder="000000"
-        value={verificationCode}
-        onChangeText={(text) => setVerificationCode(text.replace(/\D/g, '').slice(0, 6))}
-        keyboardType="number-pad"
-        maxLength={6}
-        style={styles.codeInput}
-      />
+      <View style={styles.codeInputContainer}>
+        <Input
+          placeholder="000000"
+          value={verificationCode}
+          onChangeText={(text) => setVerificationCode(text.replace(/\D/g, '').slice(0, 6))}
+          keyboardType="number-pad"
+          maxLength={6}
+          style={styles.codeInput}
+        />
+      </View>
 
       <Button
         title="Verify & Enable 2FA"
-        onPress={verifyCode}
+        onPress={verifyAndEnable}
         loading={isLoading}
         disabled={verificationCode.length !== 6}
         fullWidth
@@ -307,6 +331,11 @@ const styles = StyleSheet.create({
   qrContainer: {
     marginVertical: spacing.lg,
   },
+  qrImage: {
+    width: 200,
+    height: 200,
+    borderRadius: borderRadius.lg,
+  },
   qrPlaceholder: {
     width: 200,
     height: 200,
@@ -318,12 +347,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
   },
   qrPlaceholderText: {
-    fontSize: 48,
-  },
-  qrPlaceholderSubtext: {
     color: colors.text.tertiary,
     fontSize: typography.sizes.sm,
-    marginTop: spacing.sm,
   },
   orText: {
     color: colors.text.tertiary,
@@ -341,7 +366,7 @@ const styles = StyleSheet.create({
   },
   secretText: {
     color: colors.accent.primary,
-    fontSize: typography.sizes.lg,
+    fontSize: typography.sizes.md,
     fontFamily: 'monospace',
     letterSpacing: 2,
   },
@@ -364,11 +389,14 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     textAlign: 'center',
   },
+  codeInputContainer: {
+    width: '100%',
+    marginBottom: spacing.lg,
+  },
   codeInput: {
     fontSize: typography.sizes.xxl,
     textAlign: 'center',
     letterSpacing: 8,
-    marginBottom: spacing.lg,
   },
   backButton: {
     marginTop: spacing.lg,
