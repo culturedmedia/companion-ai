@@ -41,3 +41,4 @@ export { JournalScreen } from './JournalScreen';
 export { FriendsScreen } from './FriendsScreen';
 export { LeaderboardScreen } from './LeaderboardScreen';
 export { ChallengesScreen } from './ChallengesScreen';
+export { FamilyScreen } from './FamilyScreen';

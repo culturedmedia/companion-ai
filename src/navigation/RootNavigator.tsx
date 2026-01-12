@@ -32,6 +32,7 @@ import {
   FriendsScreen,
   LeaderboardScreen,
   ChallengesScreen,
+  FamilyScreen,
 } from '../screens';
 
 export type RootStackParamList = {
@@ -59,6 +60,7 @@ export type RootStackParamList = {
   Friends: undefined;
   Leaderboard: undefined;
   Challenges: undefined;
+  Family: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -137,6 +139,7 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen name="Friends" component={FriendsScreen} />
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
             <Stack.Screen name="Challenges" component={ChallengesScreen} />
+            <Stack.Screen name="Family" component={FamilyScreen} />
           </>
         )}
       </Stack.Navigator>

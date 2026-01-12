@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../stores/authStore';
 import { useCompanionStore } from '../stores/companionStore';
 import { useTaskStore } from '../stores/taskStore';
@@ -23,6 +24,8 @@ import { parseVoiceIntent } from '../services/voiceService';
 import { ttsService } from '../services/ttsService';
 import { hapticService } from '../services/hapticService';
 import { analyticsService } from '../services/analyticsService';
+import { aiChatService } from '../services/aiChatService';
+import { evolutionService } from '../services/evolutionService';
 import { colors, spacing, borderRadius, typography } from '../theme';
 import { ANIMAL_OPTIONS } from '../types';
 
@@ -34,6 +37,7 @@ interface Message {
 }
 
 export const HomeScreen: React.FC = () => {
+  const navigation = useNavigation();
   const { user, profile } = useAuthStore();
   const { companion, getCompanionGreeting, getCompanionEncouragement } = useCompanionStore();
   const { tasks, getTodaysTasks, getOverdueTasks, completeTask, fetchTasks } = useTaskStore();
@@ -343,6 +347,79 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Feature Shortcuts */}
+        <View style={styles.featuresSection}>
+          <Text style={styles.featuresSectionTitle}>Explore</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featuresScroll}
+          >
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Challenges' as never)}
+            >
+              <Text style={styles.featureEmoji}>🎯</Text>
+              <Text style={styles.featureTitle}>Challenges</Text>
+              <Text style={styles.featureDesc}>Daily tasks</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Friends' as never)}
+            >
+              <Text style={styles.featureEmoji}>👥</Text>
+              <Text style={styles.featureTitle}>Friends</Text>
+              <Text style={styles.featureDesc}>Connect</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Leaderboard' as never)}
+            >
+              <Text style={styles.featureEmoji}>🏆</Text>
+              <Text style={styles.featureTitle}>Leaderboard</Text>
+              <Text style={styles.featureDesc}>Rankings</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Wellness' as never)}
+            >
+              <Text style={styles.featureEmoji}>🧘</Text>
+              <Text style={styles.featureTitle}>Wellness</Text>
+              <Text style={styles.featureDesc}>Breathe</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Journal' as never)}
+            >
+              <Text style={styles.featureEmoji}>📔</Text>
+              <Text style={styles.featureTitle}>Journal</Text>
+              <Text style={styles.featureDesc}>Reflect</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Family' as never)}
+            >
+              <Text style={styles.featureEmoji}>👨‍👩‍👧‍👦</Text>
+              <Text style={styles.featureTitle}>Family</Text>
+              <Text style={styles.featureDesc}>Share tasks</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.featureCard}
+              onPress={() => navigation.navigate('Inventory' as never)}
+            >
+              <Text style={styles.featureEmoji}>🎒</Text>
+              <Text style={styles.featureTitle}>Inventory</Text>
+              <Text style={styles.featureDesc}>Items</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
         {/* Overdue Tasks */}
         {overdueTasks.length > 0 && (
           <View style={styles.section}>
@@ -531,6 +608,41 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: typography.sizes.xs,
     marginTop: spacing.xs,
+  },
+  featuresSection: {
+    marginBottom: spacing.xl,
+  },
+  featuresSectionTitle: {
+    color: colors.text.primary,
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.semibold,
+    marginBottom: spacing.md,
+  },
+  featuresScroll: {
+    paddingRight: spacing.lg,
+  },
+  featureCard: {
+    backgroundColor: colors.background.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginRight: spacing.sm,
+    alignItems: 'center',
+    width: 90,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  featureEmoji: {
+    fontSize: 28,
+    marginBottom: spacing.xs,
+  },
+  featureTitle: {
+    color: colors.text.primary,
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.medium,
+  },
+  featureDesc: {
+    color: colors.text.tertiary,
+    fontSize: typography.sizes.xs,
   },
   section: {
     marginBottom: spacing.xl,
