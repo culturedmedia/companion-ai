@@ -36,3 +36,8 @@ export { InventoryScreen } from './InventoryScreen';
 // Wellness screens
 export { WellnessScreen } from './WellnessScreen';
 export { JournalScreen } from './JournalScreen';
+
+// Social screens
+export { FriendsScreen } from './FriendsScreen';
+export { LeaderboardScreen } from './LeaderboardScreen';
+export { ChallengesScreen } from './ChallengesScreen';

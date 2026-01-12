@@ -29,6 +29,9 @@ import {
   InventoryScreen,
   WellnessScreen,
   JournalScreen,
+  FriendsScreen,
+  LeaderboardScreen,
+  ChallengesScreen,
 } from '../screens';
 
 export type RootStackParamList = {
@@ -53,6 +56,9 @@ export type RootStackParamList = {
   Inventory: undefined;
   Wellness: undefined;
   Journal: undefined;
+  Friends: undefined;
+  Leaderboard: undefined;
+  Challenges: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -126,6 +132,11 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen name="Inventory" component={InventoryScreen} />
             <Stack.Screen name="Wellness" component={WellnessScreen} />
             <Stack.Screen name="Journal" component={JournalScreen} />
+            
+            {/* Social Screens */}
+            <Stack.Screen name="Friends" component={FriendsScreen} />
+            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+            <Stack.Screen name="Challenges" component={ChallengesScreen} />
           </>
         )}
       </Stack.Navigator>
